@@ -7,21 +7,21 @@ from datetime import datetime
 
 st.set_page_config(page_title="Research Portfolio", layout="centered")
 
-# %% [2] DATABASE CONNECTION (The "Brain")
-# This cell handles the connection to your storage (Google Sheets or CSV)
+# %% [2] DATABASE CONNECTION (Updated for Google Sheets)
+from streamlit_gsheets import GSheetsConnection
+
 def save_to_database(data_dict):
-    """
-    For now, this saves to a local CSV. 
-    Later, we will swap this code for the Google Sheets API.
-    """
-    df = pd.DataFrame([data_dict])
-    # Append to a local file
-    try:
-        existing_data = pd.read_csv("responses.csv")
-        updated_data = pd.concat([existing_data, df], ignore_index=True)
-        updated_data.to_csv("responses.csv", index=False)
-    except FileNotFoundError:
-        df.to_csv("responses.csv", index=False)
+    conn = st.connection("gsheets", type=GSheetsConnection)
+    
+    # Read existing data
+    existing_data = conn.read(worksheet="Sheet1")
+    
+    # Add new row
+    new_row = pd.DataFrame([data_dict])
+    updated_df = pd.concat([existing_data, new_row], ignore_index=True)
+    
+    # Write back to Google Sheets
+    conn.update(worksheet="Sheet1", data=updated_df)
 
 # %% [3] SURVEY UI (The "Frontend")
 st.title("📊 The Evolution of Research Careers")
@@ -66,22 +66,25 @@ if submitted:
     if ai_sentiment >= 4:
         st.info("Since you are optimistic about AI, keep an eye on your LinkedIn inbox for our AI focus group!")
 
-# %% [5] DATA VISUALIZATION (The "Dashboard")
+# %% [5] DATA VISUALIZATION
 st.divider()
 st.header("Real-time Results")
 
 try:
-    data = pd.read_csv("responses.csv")
+    conn = st.connection("gsheets", type=GSheetsConnection)
+    data = conn.read(worksheet="Sheet1")
     
-    # Metric Row
-    col1, col2 = st.columns(2)
-    col1.metric("Total Responses", len(data))
-    col2.metric("Avg. AI Sentiment", round(data['sentiment'].mean(), 2))
-    
-    # Simple Chart
-    st.subheader("Responses by Role")
-    role_counts = data['role'].value_counts()
-    st.bar_chart(role_counts)
-    
-except FileNotFoundError:
-    st.warning("No data yet. Submit the form above to see the dashboard update!")
+    if not data.empty:
+        col1, col2 = st.columns(2)
+        col1.metric("Total Responses", len(data))
+        # Use 'sentiment' column we defined in Step 1
+        col2.metric("Avg. AI Sentiment", round(data['sentiment'].mean(), 2))
+        
+        st.subheader("Responses by Role")
+        role_counts = data['role'].value_counts()
+        st.bar_chart(role_counts)
+    else:
+        st.info("The sheet is empty. Be the first to submit!")
+        
+except Exception as e:
+    st.warning("Connect your Google Sheet in secrets to see the dashboard!")
