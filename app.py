@@ -1,90 +1,102 @@
-# %% [1] IMPORTS & CONFIGURATION
 import streamlit as st
+from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 from datetime import datetime
-# Note: You'll eventually need: pip install gspread
-# import gspread 
 
-st.set_page_config(page_title="Research Portfolio", layout="centered")
+# %% [1] PAGE CONFIG & CSS (Includes 'Hide Header' per your request)
+st.set_page_config(
+    page_title="AI Research Portfolio",
+    layout="centered"
+)
 
-# %% [2] DATABASE CONNECTION (Updated for Google Sheets)
-from streamlit_gsheets import GSheetsConnection
+# Custom CSS to hide the Streamlit header, footer, and main menu
+hide_st_style = """
+            <style>
+            #MainMenu {visibility: hidden;}
+            header {visibility: hidden;}
+            footer {visibility: hidden;}
+            .stDeployButton {display:none;}
+            </style>
+            """
+st.markdown(hide_st_style, unsafe_allow_html=True)
 
-def save_to_database(data_dict):
-    conn = st.connection("gsheets", type=GSheetsConnection)
-    
-    # Read existing data
-    existing_data = conn.read(worksheet="Sheet1")
-    
-    # Add new row
-    new_row = pd.DataFrame([data_dict])
-    updated_df = pd.concat([existing_data, new_row], ignore_index=True)
-    
-    # Write back to Google Sheets
-    conn.update(worksheet="Sheet1", data=updated_df)
+# %% [2] DATABASE CONNECTION
+conn = st.connection("gsheets", type=GSheetsConnection)
 
-# %% [3] SURVEY UI (The "Frontend")
+# %% [3] UPGRADE 1: SURVEY UI
 st.title("📊 The Evolution of Research Careers")
-st.write("Testing the survey flow and logic.")
+st.write("Exploring how AI is shifting trust, skills, and adoption across industries.")
 
 with st.form("main_survey"):
-    role = st.selectbox(
-        "Current Industry Role",
-        ["Data Entry", "Analyst", "Research Manager", "Executive", "Other"]
-    )
+    st.subheader("Demographics")
+    level = st.selectbox("Organizational Level", 
+                         ["Entry-level", "Individual Contributor", "Manager", "Director/Executive"])
+    tenure = st.selectbox("Years in Industry", 
+                          ["<1 year", "1-3 years", "4-7 years", "8-12 years", "13+ years"])
+
+    st.divider()
+    st.subheader("AI Workplace Sentiment")
+    st.caption("Rate your agreement: 1 = Strongly Disagree, 5 = Strongly Agree")
+
+    # The 3 Persona Questions
+    trust_q = st.radio("I feel confident identifying when an AI-generated output is factually incorrect.", 
+                       options=[1,2,3,4,5], horizontal=True)
     
-    tools = st.multiselect(
-        "Core Tech Stack",
-        ["Excel", "Python", "R", "Qualtrics", "Tableau"]
-    )
+    skill_q = st.radio("My current core technical skills will remain relevant for the next 3 years.", 
+                       options=[1,2,3,4,5], horizontal=True)
     
-    ai_sentiment = st.select_slider(
-        "AI Impact Sentiment (1=Low, 5=High)",
-        options=[1, 2, 3, 4, 5]
-    )
-    
-    contact = st.text_input("LinkedIn URL (Optional)")
+    adoption_q = st.radio("I use AI for tasks not explicitly part of my official job description.", 
+                          options=[1,2,3,4,5], horizontal=True)
+
+    linkedin = st.text_input("LinkedIn URL (Optional)")
     
     submitted = st.form_submit_button("Submit Response")
 
-# %% [4] LOGIC & POST-SUBMISSION FLOW
+# %% [4] UPGRADE 1: LOGIC
 if submitted:
-    # Prepare data
-    entry = {
-        "timestamp": datetime.now(),
-        "role": role,
-        "tools": ", ".join(tools),
-        "sentiment": ai_sentiment,
-        "link": contact
+    new_entry = {
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "level": level,
+        "tenure": tenure,
+        "trust_score": trust_q,
+        "skill_score": skill_q,
+        "adoption_score": adoption_q,
+        "linkedin_url": linkedin
     }
     
-    # Save it
-    save_to_database(entry)
-    st.success("Data recorded successfully!")
-    
-    # Logic: Show follow-up only if sentiment is high
-    if ai_sentiment >= 4:
-        st.info("Since you are optimistic about AI, keep an eye on your LinkedIn inbox for our AI focus group!")
+    try:
+        conn.create(worksheet="Sheet1", data=[new_entry])
+        st.success("Data recorded successfully!")
+        st.balloons()
+    except Exception as e:
+        st.error(f"Error: {e}")
 
-# %% [5] DATA VISUALIZATION
+# %% [5] DATA VISUALIZATION & DOWNLOAD
 st.divider()
 st.header("Real-time Results")
 
 try:
-    conn = st.connection("gsheets", type=GSheetsConnection)
-    data = conn.read(worksheet="Sheet1")
+    # TTL set to 600 seconds (10 mins) for automatic updates
+    data = conn.read(worksheet="Sheet1", ttl=600)
     
     if not data.empty:
-        col1, col2 = st.columns(2)
+        col1, col2, col3 = st.columns(3)
         col1.metric("Total Responses", len(data))
-        # Use 'sentiment' column we defined in Step 1
-        col2.metric("Avg. AI Sentiment", round(data['sentiment'].mean(), 2))
+        col2.metric("Avg Trust Score", round(data['trust_score'].mean(), 1))
+        col3.metric("Avg Skill Confidence", round(data['skill_score'].mean(), 1))
         
-        st.subheader("Responses by Role")
-        role_counts = data['role'].value_counts()
-        st.bar_chart(role_counts)
+        st.bar_chart(data['level'].value_counts())
+        
+        # Download Data Button
+        st.subheader("Export Research Data")
+        csv = data.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="📥 Download Responses as CSV",
+            data=csv,
+            file_name=f"survey_results_{datetime.now().strftime('%Y%m%d')}.csv",
+            mime="text/csv",
+        )
     else:
         st.info("The sheet is empty. Be the first to submit!")
-        
 except Exception as e:
-    st.warning("Connect your Google Sheet in secrets to see the dashboard!")
+    st.warning("Connect your Google Sheet to see results here.")
