@@ -65,7 +65,7 @@ if submitted:
     }
     
     try:
-        conn.create(worksheet="Sheet1", data=[new_entry])
+        conn.update(worksheet="Sheet1", data=[new_entry])
         st.success("Data recorded successfully!")
         st.balloons()
     except Exception as e:
