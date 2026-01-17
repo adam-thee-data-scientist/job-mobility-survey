@@ -9,16 +9,17 @@ st.set_page_config(
     layout="centered"
 )
 
-# FORCED GRID CSS: This is the only way to get pixel-perfect alignment
-# It forces the radio buttons and the headers into 5 equal 20% columns.
+# REFINED CSS: This locks the radio buttons and headers into a perfect 5-column grid
 hide_st_style = """
     <style>
+    /* 1. Hide Streamlit Branding (Your request) */
     #MainMenu {visibility: hidden;}
     header {visibility: hidden;}
     footer {visibility: hidden;}
     .stDeployButton {display:none;}
 
-    /* Force the radio group into a 5-column grid */
+    /* 2. Force the Radio Buttons into 5 equal columns */
+    /* Target the container that holds the radio options */
     div[role="radiogroup"] {
         display: grid !important;
         grid-template-columns: repeat(5, 1fr) !important;
@@ -26,15 +27,16 @@ hide_st_style = """
         width: 100% !important;
     }
     
-    /* Center the radio dots in their grid cells */
+    /* Center the circle and the number within each grid cell */
     div[role="radiogroup"] > label {
         justify-content: center !important;
         align-items: center !important;
-        margin: 0px !important;
+        margin-right: 0px !important;
         padding: 5px 0px !important;
+        flex: 1 !important;
     }
 
-    /* Vertical alignment for the question text */
+    /* 3. Improve vertical alignment for the question text */
     div[data-testid="stHorizontalBlock"] {
         align-items: center;
     }
@@ -43,14 +45,14 @@ hide_st_style = """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
 # %% [2] DATABASE CONNECTION
-# FIXED: Using the Class name instead of string "gsheets" to resolve your API error
+# FIXED: Using the Class 'GSheetsConnection' directly to fix the StreamlitAPIException
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# %% [3] UPGRADE 1: TABULAR MATRIX UI
+# %% [3] MATRIX SURVEY UI
 st.subheader("AI Workplace Sentiment")
 
 with st.form("matrix_survey"):
-    # Header Row: We use the same [3, 5] column split for every row
+    # Header Row: We use a [3, 5] ratio. 3 for questions, 5 for the matrix.
     h_col1, h_col2 = st.columns([3, 5])
     with h_col2:
         # We use a matching 5-column grid for the text headers
@@ -72,7 +74,7 @@ with st.form("matrix_survey"):
     
     responses = []
     for q_idx, q_text in enumerate(questions):
-        st.divider() # Creates the "table line"
+        st.divider() # Creates a "table line" between questions
         r_col1, r_col2 = st.columns([3, 5])
         with r_col1:
             st.markdown(f"<div style='font-size: 14px;'>{q_text}</div>", unsafe_allow_html=True)
@@ -89,34 +91,39 @@ with st.form("matrix_survey"):
     st.markdown("<br>", unsafe_allow_html=True)
     submitted = st.form_submit_button("Submit Response")
 
-# %% [4] LOGIC
+# %% [4] SUBMISSION LOGIC
 if submitted:
-    new_entry = {
-        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "trust_score": responses[0],
-        "skill_score": responses[1],
-        "adoption_score": responses[2]
+    new_data = {
+        "timestamp": [datetime.now().strftime("%Y-%m-%d %H:%M:%S")],
+        "trust_score": [responses[0]],
+        "skill_score": [responses[1]],
+        "adoption_score": [responses[2]]
     }
+    df_new = pd.DataFrame(new_data)
     
     try:
-        conn.create(worksheet="Sheet1", data=[new_entry])
-        st.success("Data recorded successfully!")
+        # Append data to the sheet
+        existing_data = conn.read(worksheet="Sheet1")
+        updated_df = pd.concat([existing_data, df_new], ignore_index=True)
+        conn.update(worksheet="Sheet1", data=updated_df)
+        st.success("Responses recorded!")
         st.balloons()
     except Exception as e:
-        st.error(f"Error connecting to Google Sheets: {e}")
+        st.error(f"Spreadsheet Error: {e}")
 
-# %% [5] DATA VISUALIZATION
+# %% [5] RESULTS VISUALIZATION
 st.divider()
 st.header("Real-time Results")
 
 try:
-    data = conn.read(worksheet="Sheet1", ttl=600)
+    data = conn.read(worksheet="Sheet1", ttl=5)
     if not data.empty:
         c1, c2, c3 = st.columns(3)
         c1.metric("Responses", len(data))
-        c2.metric("Avg Trust", round(data['trust_score'].mean(), 1))
-        c3.metric("Avg Skill", round(data['skill_score'].mean(), 1))
+        if 'trust_score' in data.columns:
+            c2.metric("Avg Trust", round(data['trust_score'].mean(), 1))
+            c3.metric("Avg Skill", round(data['skill_score'].mean(), 1))
     else:
-        st.info("The sheet is empty. Be the first to submit!")
+        st.info("No data yet.")
 except:
-    st.warning("Check your Google Sheet connection and column headers.")
+    st.warning("Connect your Google Sheet to see live results.")
