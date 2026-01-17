@@ -6,7 +6,7 @@ from datetime import datetime
 # %% [1] PAGE CONFIG & PERSISTENT CSS
 st.set_page_config(page_title="AI Research Portfolio", layout="wide")
 
-# This CSS forces the radio buttons and headers into a synchronized 5-column grid
+# This new CSS forces the radio buttons to spread out across the whole column
 matrix_style = """
 <style>
     /* 1. Hide Streamlit Branding (Per your request) */
@@ -15,58 +15,64 @@ matrix_style = """
     footer {visibility: hidden;}
     .stDeployButton {display:none;}
 
-    /* 2. The Magic Alignment: Force Radio Buttons into 5 equal columns */
+    /* 2. THE NEW APPROACH: Flexbox Spreading */
+    /* This targets the container of the radio dots */
     div[role="radiogroup"] {
-        display: grid !important;
-        grid-template-columns: repeat(5, 1fr) !important;
+        display: flex !important;
+        justify-content: space-between !important;
         width: 100% !important;
-        gap: 0px !important;
     }
     
-    /* Center the radio dot and number within its grid cell */
+    /* This makes each individual dot/number occupy equal space */
     div[role="radiogroup"] > label {
+        flex: 1 !important;
         justify-content: center !important;
-        align-items: center !important;
-        padding: 10px 0px !important;
-        margin: 0px !important;
+        margin-right: 0px !important;
     }
 
-    /* 3. Header Grid: Match the Radio Group exactly */
+    /* 3. Header Alignment */
     .matrix-header {
-        display: grid;
-        grid-template-columns: repeat(5, 1fr);
+        display: flex;
+        justify-content: space-between;
         text-align: center;
-        margin-bottom: 5px;
+        margin-bottom: 10px;
     }
-    .header-label {
+    .header-item {
+        flex: 1;
         font-weight: bold;
         font-size: 12px;
-        line-height: 1.2;
+        line-height: 1.1;
     }
 </style>
 """
 st.markdown(matrix_style, unsafe_allow_html=True)
 
 # %% [2] DATABASE CONNECTION
-# FIXED: Using GSheetsConnection class to resolve image_9bd5c7.png error
-conn = st.connection("gsheets", type=GSheetsConnection)
+# Initialize to prevent NameError
+submitted = False 
+
+try:
+    # FIXED: Using the class GSheetsConnection directly fixes image_9bd5c7.png
+    conn = st.connection("gsheets", type=GSheetsConnection)
+except Exception as e:
+    st.error(f"Connection Setup Error: {e}")
 
 # %% [3] MATRIX SURVEY UI
 st.subheader("AI Workplace Sentiment")
 
 with st.form("matrix_survey"):
-    # Main layout: 40% for question text, 60% for the matrix area
+    # Split: 40% Question, 60% Matrix
     col_q, col_m = st.columns([4, 6])
     
     with col_m:
-        # Header Row using the CSS grid class defined above
+        # Header Row using Flexbox to match the radio dots
         st.markdown("""
         <div class="matrix-header">
-            <div class="header-label">Strongly<br>Disagree</div>
-            <div class="header-label">Somewhat<br>Disagree</div>
-            <div class="header-label">Neither</div>
-            <div class="header-label">Somewhat<br>Agree</div>
-            <div class="header-label">Strongly<br>Agree</div>
+            <div class="header-item">Strongly<br>Disagree</div>
+            <div class="header-item">Somewhat<br>Disagree</div>
+            <div class="header-item">Neither</div>
+            <div class="header-item">Somewhat<br>Agree</div>
+            <div class="header-item">Strongly<br>Agree</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -82,10 +88,10 @@ with st.form("matrix_survey"):
         r_col_q, r_col_m = st.columns([4, 6])
         
         with r_col_q:
-            st.write(f"**{q_text}**")
+            st.markdown(f"<div style='padding-top:10px;'>{q_text}</div>", unsafe_allow_html=True)
             
         with r_col_m:
-            # The CSS above targets this radio group to spread it across the 5 columns
+            # The CSS above will now force these dots to spread across the whole 60% width
             choice = st.radio(
                 label=q_text,
                 options=[1, 2, 3, 4, 5],
@@ -111,12 +117,12 @@ if submitted:
         existing_data = conn.read(worksheet="Sheet1")
         updated_df = pd.concat([existing_data, new_data], ignore_index=True)
         conn.update(worksheet="Sheet1", data=updated_df)
-        st.success("Success! Your perspective has been added.")
+        st.success("Success! Responses recorded.")
         st.balloons()
     except Exception as e:
-        st.error(f"Sheet Update Failed: {e}")
+        st.error(f"Submission failed. Check your Sheet connection: {e}")
 
-# %% [5] LIVE RESULTS
+# %% [5] COMMUNITY RESULTS
 st.divider()
 st.header("Community Progress")
 try:
@@ -124,4 +130,4 @@ try:
     if not data.empty:
         st.metric("Total Contributors", len(data))
 except:
-    st.info("Results will appear once the Google Sheet is connected.")
+    st.info("Live results will appear once the Google Sheet is linked.")
