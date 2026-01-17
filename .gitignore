@@ -1,2 +1,10 @@
+# Streamlit local settings and secrets
 .streamlit/
+
+# Google service account keys (if you have them locally)
 *.json
+
+# Python environment/cache
+__pycache__/
+.venv/
+.DS_Store
