@@ -15,6 +15,8 @@ hide_st_style = """
             #MainMenu {visibility: hidden;}
             header {visibility: hidden;}
             footer {visibility: hidden;}
+            [data-testid="stHorizontalBlock"] {align-items: center;}
+            div[data-testid="stMarkdownContainer"] > p {font-size: 14px;}
             .stDeployButton {display:none;}
             </style>
             """
@@ -26,7 +28,6 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 # %% [3] UPGRADE 1: TABULAR MATRIX UI
 st.subheader("AI Workplace Sentiment")
 
-# Wrap everything in a form so 'submitted' becomes defined
 with st.form("matrix_survey"):
     headers = ["Strongly Disagree", "Somewhat Disagree", "Neither", "Somewhat Agree", "Strongly Agree"]
     questions = [
@@ -35,27 +36,32 @@ with st.form("matrix_survey"):
         "I use AI for tasks not explicitly part of my official job description."
     ]
 
-    # Create the Table Header
+    # Create the Table Header Row
     cols = st.columns([2.5, 1, 1, 1, 1, 1])
     cols[0].write("") 
     for i, header in enumerate(headers):
-        cols[i+1].write(f"**{header}**")
+        cols[i+1].markdown(f"<div style='text-align: center;'><b>{header}</b></div>", unsafe_allow_html=True)
 
-    # Create the Rows and collect responses
+    # Create the Rows
     responses = []
-    for q_text in questions:
+    for q_idx, q_text in enumerate(questions):
         row_cols = st.columns([2.5, 1, 1, 1, 1, 1])
         row_cols[0].write(q_text)
         
-        selection = row_cols[1].radio(
-            "hidden", [1, 2, 3, 4, 5], 
-            key=q_text, 
-            horizontal=True, 
-            label_visibility="collapsed"
-        )
+        # Use st.radio with horizontal=True in a way that spans the columns
+        # To get the true table look, we use a single radio across the 5 cols
+        # We wrap the 5 response columns in a nested sub-container
+        with row_cols[1]:
+            # This is the trick: a single horizontal radio that we "stretch"
+            selection = st.radio(
+                label=q_text,
+                options=[1, 2, 3, 4, 5],
+                key=f"q_{q_idx}",
+                horizontal=True,
+                label_visibility="collapsed"
+            )
         responses.append(selection)
 
-    # This creates the button and the 'submitted' variable
     submitted = st.form_submit_button("Submit Response")
 
 # %% [4] UPGRADE 1: LOGIC
