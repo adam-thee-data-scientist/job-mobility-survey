@@ -9,7 +9,7 @@ st.set_page_config(
     layout="centered"
 )
 
-# Custom CSS to force the "Table" look
+# Refined CSS for perfect alignment
 hide_st_style = """
             <style>
             #MainMenu {visibility: hidden;}
@@ -17,18 +17,24 @@ hide_st_style = """
             footer {visibility: hidden;}
             .stDeployButton {display:none;}
             
-            /* Spreads the radio buttons across the available width */
+            /* This forces the 5 radio options to each take up exactly 1/5th of the row */
             div[role="radiogroup"] {
-                justify-content: space-between;
-                width: 100%;
+                display: flex;
+                width: 100% !important;
+                justify-content: space-around;
             }
-            /* Centers the radio dots */
+            div[role="radiogroup"] > label {
+                flex: 1;
+                justify-content: center;
+                display: flex;
+            }
+            /* Removes extra padding that can shift the row */
             div[data-testid="stHorizontalBlock"] {
                 align-items: center;
+                gap: 0px;
             }
             </style>
             """
-# CRITICAL: This line must be here to activate the CSS!
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
 # %% [2] DATABASE CONNECTION
@@ -45,20 +51,21 @@ with st.form("matrix_survey"):
         "I use AI for tasks not explicitly part of my official job description."
     ]
 
-    # 1. Create the Header Row (Question placeholder + 5 labels)
-    header_cols = st.columns([2.5, 1, 1, 1, 1, 1])
-    header_cols[0].write("") # Empty corner
+    # 1. Header Row: Using [3, 1, 1, 1, 1, 1]
+    # The '3' is for the question, and the five '1s' are the columns
+    h_cols = st.columns([3, 1, 1, 1, 1, 1])
+    h_cols[0].write("") 
     for i, header in enumerate(headers):
-        header_cols[i+1].markdown(f"<p style='text-align:center; font-size:12px;'><b>{header}</b></p>", unsafe_allow_html=True)
+        h_cols[i+1].markdown(f"<p style='text-align:center; font-size:11px; line-height:1.2;'><b>{header}</b></p>", unsafe_allow_html=True)
 
-    # 2. Create the Question Rows
+    # 2. Question Rows: Using [3, 5]
+    # The '5' perfectly covers the same space as the five '1s' above
     responses = []
     for q_idx, q_text in enumerate(questions):
-        # We use [2.5, 5] so the second column spans the space of the 5 headers above
-        row_cols = st.columns([2.5, 5]) 
-        row_cols[0].write(q_text)
+        r_cols = st.columns([3, 5]) 
+        r_cols[0].markdown(f"<div style='font-size:14px; padding-top:10px;'>{q_text}</div>", unsafe_allow_html=True)
         
-        with row_cols[1]:
+        with r_cols[1]:
             selection = st.radio(
                 label=q_text,
                 options=[1, 2, 3, 4, 5],
@@ -68,6 +75,7 @@ with st.form("matrix_survey"):
             )
         responses.append(selection)
 
+    st.markdown("<br>", unsafe_allow_html=True) # Adds a little space before button
     submitted = st.form_submit_button("Submit Response")
 
 # %% [4] UPGRADE 1: LOGIC
