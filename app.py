@@ -10,17 +10,23 @@ st.set_page_config(
 )
 
 # Custom CSS to hide the Streamlit header, footer, and main menu
+# Updated CSS block
 hide_st_style = """
             <style>
             #MainMenu {visibility: hidden;}
             header {visibility: hidden;}
             footer {visibility: hidden;}
-            [data-testid="stHorizontalBlock"] {align-items: center;}
-            div[data-testid="stMarkdownContainer"] > p {font-size: 14px;}
             .stDeployButton {display:none;}
+            
+            /* FORCES RADIO BUTTONS TO SPREAD OUT HORIZONTALLY */
+            [data-testid="stWidgetLabel"] {display: none;}
+            [data-testid="stHorizontalBlock"] {align-items: center;}
+            div[data-testid="column"] > div > div > div > div.stRadio > div[role="radiogroup"] {
+                justify-content: space-between;
+                width: 550px; /* Adjust this to match your screen width */
+            }
             </style>
             """
-st.markdown(hide_st_style, unsafe_allow_html=True)
 
 # %% [2] DATABASE CONNECTION
 conn = st.connection("gsheets", type=GSheetsConnection)
@@ -48,11 +54,11 @@ with st.form("matrix_survey"):
         row_cols = st.columns([2.5, 1, 1, 1, 1, 1])
         row_cols[0].write(q_text)
         
-        # Use st.radio with horizontal=True in a way that spans the columns
-        # To get the true table look, we use a single radio across the 5 cols
-        # We wrap the 5 response columns in a nested sub-container
+        # We create a single radio widget that is stretched across columns using CSS
+        # But to ensure horizontal alignment, we use this specific container trick:
         with row_cols[1]:
-            # This is the trick: a single horizontal radio that we "stretch"
+            # Setting the width to 500px forces the horizontal radio to expand 
+            # across the remaining row_cols space
             selection = st.radio(
                 label=q_text,
                 options=[1, 2, 3, 4, 5],
