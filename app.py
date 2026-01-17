@@ -3,13 +3,6 @@ from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 from datetime import datetime
 
-# %% [1] PAGE CONFIG & CSS
-st.set_page_config(
-    page_title="AI Research Portfolio",
-    layout="centered"
-)
-
-# Refined CSS for perfect alignment
 hide_st_style = """
             <style>
             #MainMenu {visibility: hidden;}
@@ -17,21 +10,25 @@ hide_st_style = """
             footer {visibility: hidden;}
             .stDeployButton {display:none;}
             
-            /* This forces the 5 radio options to each take up exactly 1/5th of the row */
-            div[role="radiogroup"] {
-                display: flex;
-                width: 100% !important;
-                justify-content: space-around;
+            /* Forces the radio buttons and headers to use the same 5-column grid */
+            div[role="radiogroup"], .header-container {
+                display: grid !important;
+                grid-template-columns: repeat(5, 1fr);
+                width: 100%;
+                gap: 0px;
             }
-            div[role="radiogroup"] > label {
-                flex: 1;
+            
+            /* Centers the dots and the text labels */
+            div[role="radiogroup"] > label, .header-item {
                 justify-content: center;
                 display: flex;
-            }
-            /* Removes extra padding that can shift the row */
-            div[data-testid="stHorizontalBlock"] {
+                text-align: center;
                 align-items: center;
-                gap: 0px;
+            }
+            
+            /* Tightens vertical spacing for a table look */
+            [data-testid="stVerticalBlock"] {
+                gap: 0.5rem;
             }
             </style>
             """
@@ -51,19 +48,24 @@ with st.form("matrix_survey"):
         "I use AI for tasks not explicitly part of my official job description."
     ]
 
-    # 1. Header Row: Using [3, 1, 1, 1, 1, 1]
-    # The '3' is for the question, and the five '1s' are the columns
-    h_cols = st.columns([3, 1, 1, 1, 1, 1])
-    h_cols[0].write("") 
-    for i, header in enumerate(headers):
-        h_cols[i+1].markdown(f"<p style='text-align:center; font-size:11px; line-height:1.2;'><b>{header}</b></p>", unsafe_allow_html=True)
+    # 1. Header Row
+    # We use a [3, 5] split to match the question rows exactly
+    h_cols = st.columns([3, 5])
+    h_cols[0].write("") # Empty corner
+    
+    # We build the 5 headers inside the SECOND column using a single HTML string
+    header_html = f"""
+    <div class='header-container'>
+        {"".join([f"<div class='header-item' style='font-size:11px; font-weight:bold;'>{h}</div>" for h in headers])}
+    </div>
+    """
+    h_cols[1].markdown(header_html, unsafe_allow_html=True)
 
-    # 2. Question Rows: Using [3, 5]
-    # The '5' perfectly covers the same space as the five '1s' above
+    # 2. Question Rows
     responses = []
     for q_idx, q_text in enumerate(questions):
         r_cols = st.columns([3, 5]) 
-        r_cols[0].markdown(f"<div style='font-size:14px; padding-top:10px;'>{q_text}</div>", unsafe_allow_html=True)
+        r_cols[0].markdown(f"<div style='font-size:14px; padding-top:5px;'>{q_text}</div>", unsafe_allow_html=True)
         
         with r_cols[1]:
             selection = st.radio(
@@ -75,7 +77,7 @@ with st.form("matrix_survey"):
             )
         responses.append(selection)
 
-    st.markdown("<br>", unsafe_allow_html=True) # Adds a little space before button
+    st.markdown("<br>", unsafe_allow_html=True)
     submitted = st.form_submit_button("Submit Response")
 
 # %% [4] UPGRADE 1: LOGIC
