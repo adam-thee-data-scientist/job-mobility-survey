@@ -62,6 +62,7 @@ HTML_TEMPLATE = """
         
         .chart-container { position: relative; height: 300px; width: 100%; margin-top: 20px; }
     </style>
+    {{ hide_header | safe }}
 </head>
 <body>
     {% if success %}
@@ -166,12 +167,19 @@ def index():
             if scores:
                 averages[q_key] = round(sum(scores) / len(scores), 2)
 
-    return render_template_string(HTML_TEMPLATE, 
-                                 questions=questions, 
-                                 success=success, 
-                                 averages=averages, 
-                                 total=total,
-                                 linkedin_url=LINKEDIN_URL)
+    # NEW: Define the CSS to hide the header and adjust top padding
+    hide_header_css = """
+    <style>
+        header { display: none !important; visibility: hidden; }
+        .main .block-container { padding-top: 1rem !important; }
+    </style>
+    """
 
-if __name__ == "__main__":
-    app.run(debug=True)
+    # ADDED 'hide_header' to the return function below
+    return render_template_string(HTML_TEMPLATE, 
+                                  questions=questions, 
+                                  success=success, 
+                                  averages=averages, 
+                                  total=total,
+                                  linkedin_url=LINKEDIN_URL,
+                                  hide_header=hide_header_css) # <--- Passed here
