@@ -3,14 +3,13 @@ from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 from datetime import datetime
 
-# %% [1] PAGE CONFIG & CSS (Includes 'Hide Header' per your request)
+# %% [1] PAGE CONFIG & CSS
 st.set_page_config(
     page_title="AI Research Portfolio",
     layout="centered"
 )
 
-# Custom CSS to hide the Streamlit header, footer, and main menu
-# Updated CSS block
+# Custom CSS to force the "Table" look
 hide_st_style = """
             <style>
             #MainMenu {visibility: hidden;}
@@ -18,15 +17,19 @@ hide_st_style = """
             footer {visibility: hidden;}
             .stDeployButton {display:none;}
             
-            /* FORCES RADIO BUTTONS TO SPREAD OUT HORIZONTALLY */
-            [data-testid="stWidgetLabel"] {display: none;}
-            [data-testid="stHorizontalBlock"] {align-items: center;}
-            div[data-testid="column"] > div > div > div > div.stRadio > div[role="radiogroup"] {
+            /* Spreads the radio buttons across the available width */
+            div[role="radiogroup"] {
                 justify-content: space-between;
-                width: 550px; /* Adjust this to match your screen width */
+                width: 100%;
+            }
+            /* Centers the radio dots */
+            div[data-testid="stHorizontalBlock"] {
+                align-items: center;
             }
             </style>
             """
+# CRITICAL: This line must be here to activate the CSS!
+st.markdown(hide_st_style, unsafe_allow_html=True)
 
 # %% [2] DATABASE CONNECTION
 conn = st.connection("gsheets", type=GSheetsConnection)
@@ -42,23 +45,20 @@ with st.form("matrix_survey"):
         "I use AI for tasks not explicitly part of my official job description."
     ]
 
-    # Create the Table Header Row
-    cols = st.columns([2.5, 1, 1, 1, 1, 1])
-    cols[0].write("") 
+    # 1. Create the Header Row (Question placeholder + 5 labels)
+    header_cols = st.columns([2.5, 1, 1, 1, 1, 1])
+    header_cols[0].write("") # Empty corner
     for i, header in enumerate(headers):
-        cols[i+1].markdown(f"<div style='text-align: center;'><b>{header}</b></div>", unsafe_allow_html=True)
+        header_cols[i+1].markdown(f"<p style='text-align:center; font-size:12px;'><b>{header}</b></p>", unsafe_allow_html=True)
 
-    # Create the Rows
+    # 2. Create the Question Rows
     responses = []
     for q_idx, q_text in enumerate(questions):
-        row_cols = st.columns([2.5, 1, 1, 1, 1, 1])
+        # We use [2.5, 5] so the second column spans the space of the 5 headers above
+        row_cols = st.columns([2.5, 5]) 
         row_cols[0].write(q_text)
         
-        # We create a single radio widget that is stretched across columns using CSS
-        # But to ensure horizontal alignment, we use this specific container trick:
         with row_cols[1]:
-            # Setting the width to 500px forces the horizontal radio to expand 
-            # across the remaining row_cols space
             selection = st.radio(
                 label=q_text,
                 options=[1, 2, 3, 4, 5],
