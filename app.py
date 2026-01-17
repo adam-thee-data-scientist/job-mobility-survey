@@ -23,34 +23,38 @@ st.markdown(hide_st_style, unsafe_allow_html=True)
 # %% [2] DATABASE CONNECTION
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# %% [3] UPGRADE 1: SURVEY UI
-st.title("📊 The Evolution of Research Careers")
-st.write("Exploring how AI is shifting trust, skills, and adoption across industries.")
+# %% [3] UPGRADE 1: TABULAR MATRIX UI
+st.subheader("AI Workplace Sentiment")
+st.write("Rate your agreement: 1 = Strongly Disagree, 5 = Strongly Agree")
 
-with st.form("main_survey"):
-    st.subheader("Demographics")
-    level = st.selectbox("Organizational Level", 
-                         ["Entry-level", "Individual Contributor", "Manager", "Director/Executive"])
-    tenure = st.selectbox("Years in Industry", 
-                          ["<1 year", "1-3 years", "4-7 years", "8-12 years", "13+ years"])
+# 1. Define the headers for your 5 columns
+headers = ["Strongly Disagree", "Somewhat Disagree", "Neither", "Somewhat Agree", "Strongly Agree"]
+questions = [
+    "I feel confident identifying when an AI-generated output is factually incorrect.",
+    "My current core technical skills will remain relevant for the next 3 years.",
+    "I use AI for tasks not explicitly part of my official job description."
+]
 
-    st.divider()
-    st.subheader("AI Workplace Sentiment")
-    st.caption("Rate your agreement: 1 = Strongly Disagree, 5 = Strongly Agree")
+# 2. Create the Table Header
+cols = st.columns([2.5, 1, 1, 1, 1, 1]) # First column is wider for the text
+cols[0].write("") # Empty corner cell
+for i, header in enumerate(headers):
+    cols[i+1].write(f"**{header}**")
 
-    # The 3 Persona Questions
-    trust_q = st.radio("I feel confident identifying when an AI-generated output is factually incorrect.", 
-                       options=[1,2,3,4,5], horizontal=True)
+# 3. Create the Rows
+responses = []
+for q_text in questions:
+    row_cols = st.columns([2.5, 1, 1, 1, 1, 1])
+    row_cols[0].write(q_text) # The question stem
     
-    skill_q = st.radio("My current core technical skills will remain relevant for the next 3 years.", 
-                       options=[1,2,3,4,5], horizontal=True)
-    
-    adoption_q = st.radio("I use AI for tasks not explicitly part of my official job description.", 
-                          options=[1,2,3,4,5], horizontal=True)
-
-    linkedin = st.text_input("LinkedIn URL (Optional)")
-    
-    submitted = st.form_submit_button("Submit Response")
+    # Using a radio button hidden label for each column
+    selection = row_cols[1].radio(
+        "hidden_label", [1, 2, 3, 4, 5], 
+        key=q_text, 
+        horizontal=True, 
+        label_visibility="collapsed"
+    )
+    responses.append(selection)
 
 # %% [4] UPGRADE 1: LOGIC
 if submitted:
