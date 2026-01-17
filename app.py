@@ -3,7 +3,7 @@ from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 from datetime import datetime
 
-h# %% [1] PAGE CONFIG & CSS
+# %% [1] PAGE CONFIG & CSS
 st.set_page_config(
     page_title="AI Research Portfolio",
     layout="centered"
