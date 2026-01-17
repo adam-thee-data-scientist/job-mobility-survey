@@ -3,44 +3,73 @@ from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 from datetime import datetime
 
-# %% [1] PAGE CONFIG
+# %% [1] PAGE CONFIG & PERSISTENT CSS
 st.set_page_config(page_title="AI Research Portfolio", layout="wide")
 
-# Hide Header/Footer (Your persistent request)
-st.markdown("""
-    <style>
+# This CSS forces the radio buttons and headers into a synchronized 5-column grid
+matrix_style = """
+<style>
+    /* 1. Hide Streamlit Branding (Per your request) */
     #MainMenu {visibility: hidden;}
     header {visibility: hidden;}
     footer {visibility: hidden;}
     .stDeployButton {display:none;}
-    /* Remove vertical padding between rows to make it look like a table */
-    .element-container { margin-bottom: -10px; }
-    </style>
-""", unsafe_allow_html=True)
+
+    /* 2. The Magic Alignment: Force Radio Buttons into 5 equal columns */
+    div[role="radiogroup"] {
+        display: grid !important;
+        grid-template-columns: repeat(5, 1fr) !important;
+        width: 100% !important;
+        gap: 0px !important;
+    }
+    
+    /* Center the radio dot and number within its grid cell */
+    div[role="radiogroup"] > label {
+        justify-content: center !important;
+        align-items: center !important;
+        padding: 10px 0px !important;
+        margin: 0px !important;
+    }
+
+    /* 3. Header Grid: Match the Radio Group exactly */
+    .matrix-header {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        text-align: center;
+        margin-bottom: 5px;
+    }
+    .header-label {
+        font-weight: bold;
+        font-size: 12px;
+        line-height: 1.2;
+    }
+</style>
+"""
+st.markdown(matrix_style, unsafe_allow_html=True)
 
 # %% [2] DATABASE CONNECTION
-# FIXED: Passing the class GSheetsConnection directly fixes your API error
+# FIXED: Using GSheetsConnection class to resolve image_9bd5c7.png error
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# %% [3] THE "DIFFERENT" MATRIX UI
+# %% [3] MATRIX SURVEY UI
 st.subheader("AI Workplace Sentiment")
 
-# Define our column widths once so they are identical for every row
-# [4 units for question, 1 unit for each of the 5 options]
-widths = [4, 1, 1, 1, 1, 1]
-
 with st.form("matrix_survey"):
-    # --- 1. THE HEADER ROW ---
-    cols = st.columns(widths)
-    labels = ["", "Strongly<br>Disagree", "Somewhat<br>Disagree", "Neither", "Somewhat<br>Agree", "Strongly<br>Agree"]
+    # Main layout: 40% for question text, 60% for the matrix area
+    col_q, col_m = st.columns([4, 6])
     
-    for i, label in enumerate(labels):
-        if label:
-            cols[i].markdown(f"<div style='text-align:center; font-weight:bold; font-size:12px; line-height:1;'>{label}</div>", unsafe_allow_html=True)
+    with col_m:
+        # Header Row using the CSS grid class defined above
+        st.markdown("""
+        <div class="matrix-header">
+            <div class="header-label">Strongly<br>Disagree</div>
+            <div class="header-label">Somewhat<br>Disagree</div>
+            <div class="header-label">Neither</div>
+            <div class="header-label">Somewhat<br>Agree</div>
+            <div class="header-label">Strongly<br>Agree</div>
+        </div>
+        """, unsafe_allow_html=True)
 
-    st.divider()
-
-    # --- 2. THE QUESTION ROWS ---
     questions = [
         "I feel confident identifying when an AI-generated output is factually incorrect.",
         "My current core technical skills will remain relevant for the next 3 years.",
@@ -48,36 +77,30 @@ with st.form("matrix_survey"):
     ]
     
     responses = []
-    for q_idx, q_text in enumerate(questions):
-        row_cols = st.columns(widths)
+    for i, q_text in enumerate(questions):
+        st.divider()
+        r_col_q, r_col_m = st.columns([4, 6])
         
-        # Column 0: The Question
-        row_cols[0].write(q_text)
-        
-        # Columns 1-5: The Radio Buttons (one per column)
-        # We use a single radio widget but hide its label to make it look like dots
-        with row_cols[1]: # This spans the area of the 5 choices
-            # We use an empty container to group the radio button across the remaining columns
-            # But since Streamlit widgets can't span multiple columns easily, 
-            # we place the radio in a sub-container or use a Select Slider.
+        with r_col_q:
+            st.write(f"**{q_text}**")
             
-            # ALTERNATIVE: Use a Select Slider which is 100% aligned by default
-            choice = st.select_slider(
+        with r_col_m:
+            # The CSS above targets this radio group to spread it across the 5 columns
+            choice = st.radio(
                 label=q_text,
                 options=[1, 2, 3, 4, 5],
-                value=3,
-                label_visibility="collapsed",
-                key=f"q_{q_idx}"
+                key=f"q_{i}",
+                horizontal=True,
+                label_visibility="collapsed"
             )
             responses.append(choice)
-        
-        st.divider()
 
+    st.markdown("<br>", unsafe_allow_html=True)
     submitted = st.form_submit_button("Submit Response")
 
-# %% [4] LOGIC
+# %% [4] SUBMISSION LOGIC
 if submitted:
-    new_entry = pd.DataFrame([{
+    new_data = pd.DataFrame([{
         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "trust_score": responses[0],
         "skill_score": responses[1],
@@ -85,19 +108,20 @@ if submitted:
     }])
     
     try:
-        # Append data logic
         existing_data = conn.read(worksheet="Sheet1")
-        updated_df = pd.concat([existing_data, new_entry], ignore_index=True)
+        updated_df = pd.concat([existing_data, new_data], ignore_index=True)
         conn.update(worksheet="Sheet1", data=updated_df)
-        st.success("Responses Saved!")
+        st.success("Success! Your perspective has been added.")
+        st.balloons()
     except Exception as e:
-        st.error(f"Error: {e}")
+        st.error(f"Sheet Update Failed: {e}")
 
-# %% [5] RESULTS
+# %% [5] LIVE RESULTS
+st.divider()
+st.header("Community Progress")
 try:
     data = conn.read(worksheet="Sheet1", ttl=5)
     if not data.empty:
-        st.divider()
-        st.metric("Total Responses", len(data))
+        st.metric("Total Contributors", len(data))
 except:
-    pass
+    st.info("Results will appear once the Google Sheet is connected.")
